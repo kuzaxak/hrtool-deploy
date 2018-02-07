@@ -1,7 +1,7 @@
 properties([gitLabConnection('git_cubi')])
 
 podTemplate(
-    cloud: 'hr_cluster',
+    cloud: 'insly_cluster',
     label: 'hr',
     nodeSelector: 'cloud.google.com/gke-preemptible: true',
     slaveConnectTimeout: 500,
