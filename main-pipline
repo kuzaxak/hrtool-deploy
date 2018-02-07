@@ -7,7 +7,7 @@ podTemplate(
     slaveConnectTimeout: 500,
     containers: [
         containerTemplate(name: 'workspace', image: 'laradock/workspace:2.0-71',ttyEnabled: true),
-        containerTemplate(name: 'phpqa', image: 'kuzaxak/phpqa:v1.16',ttyEnabled: true, command: 'cat'),
+        containerTemplate(name: 'phpqa', image: 'kuzaxak/phpqa:v1.16',ttyEnabled: true, command: 'echo 3'),
     ],
     volumes: [
         secretVolume(secretName: 'jenkins-ssh', mountPath: '/home/jenkins/.ssh')
