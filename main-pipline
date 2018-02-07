@@ -58,13 +58,15 @@ podTemplate(
                 sh '''
                     ssh -i "/home/jenkins/.ssh/jenkins" -o StrictHostKeyChecking=no jenkins@hrtool.xyz <<EOF
                        cd /var/www/hr/
+                       php artisan down
                        git fetch
                        git status
                        git pull
                        composer install
-                       php artisan migrate
+                       php artisan migrate --force
                        npm i
                        npm run prod
+                       php artisan up
                        exit
                      EOF
                  '''
