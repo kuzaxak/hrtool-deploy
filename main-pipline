@@ -1,0 +1,75 @@
+properties([gitLabConnection('git_cubi')])
+
+podTemplate(
+    cloud: 'hr_cluster',
+    label: 'hr',
+    nodeSelector: 'cloud.google.com/gke-preemptible: true',
+    slaveConnectTimeout: 500,
+    containers: [
+        containerTemplate(name: 'workspace', image: 'laradock/workspace:2.0-71',ttyEnabled: true),
+        containerTemplate(name: 'phpqa', image: 'kuzaxak/phpqa:v1.16',ttyEnabled: true, command: 'cat'),
+    ],
+    volumes: [
+        secretVolume(secretName: 'jenkins-ssh', mountPath: '/home/jenkins/.ssh')
+    ]
+) {
+    node('hr') {
+        stage("checkout") {
+            git branch: "origin/${env.gitlabSourceBranch}",
+                poll: false,
+                url: "${env.gitlabSourceRepoSshUrl}",
+                credentialsId: 'test-j-deploy-key'
+        }
+
+            stage("prepare") {
+                gitlabCommitStatus("prepare") {
+                    container('workspace') {
+                        sh '''
+                        composer install -q
+                        '''
+                    }
+                }
+            }
+
+            stage("test") {
+                gitlabCommitStatus("test") {
+                    container('phpqa') {
+                        sh '''
+                        /composer/vendor/edgedesign/phpqa/phpqa tools
+                        /composer/vendor/edgedesign/phpqa/phpqa --report offline --ignoredDirs vendor,build,migrations,test --ignoredFiles _ide_helper.php --tools phpcpd,phploc,pdepend,phpmd,phpmetrics,phpcs,security-checker,phpstan,parallel-lint
+                        '''
+
+                        archive 'build/*'
+                        publishHTML(target: [
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: false,
+                            keepAll: false,
+                            reportDir: 'build',
+                            reportFiles: 'phpqa.html',
+                            reportName: 'PHP QA Report',
+                            reportTitles: ''
+                        ])
+                    }
+                }
+            }
+
+            stage("deploy") {
+                gitlabCommitStatus("deploy") {
+                    sh '''
+                        ssh -i "/home/jenkins/.ssh/jenkins" -o StrictHostKeyChecking=no jenkins@hrtool.xyz <<EOF
+                           cd /var/www/hr/
+                           git fetch
+                           git status
+                           git pull
+                           composer install
+                           php artisan migrate
+                           npm i
+                           npm run prod
+                           exit
+                         EOF
+                     '''
+                }
+            }
+        }
+    }
+}
